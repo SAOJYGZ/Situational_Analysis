@@ -4,4 +4,5 @@ import numpy as np
 import plotly.graph_objects as go
 
 def render():
-    pass
+    st.header("鲨鱼鳍情景分析")
+    st.subheader("开发中...请勿使用！")

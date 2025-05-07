@@ -8,7 +8,7 @@ def render():
     st.subheader("开发中...请勿使用！")
 
     # 1) 产品类型选择（后续可扩充更多）
-    product = st.selectbox("选择产品类型", ["Snowball"], index=0)
+    product = st.selectbox("选择产品类型", ["雪球"], index=0)
     st.subheader(f"{product} 参数输入模板")
 
     # 2) 参数输入表单
