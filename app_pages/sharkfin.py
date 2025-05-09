@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-def render_sharkfin_single_line():
+def render():
     st.header("鲨鱼鳍期权情景分析")
     st.subheader("美式鲨鱼鳍期权 (简化收益展示)") 
 
@@ -162,7 +162,3 @@ def render_sharkfin_single_line():
 
     else:
         st.info("请在上方输入参数，然后点击“生成鲨鱼鳍收益分析图”。")
-
-if __name__ == "__main__":
-    st.set_page_config(layout="wide", page_title="鲨鱼鳍期权分析（单线）")
-    render_sharkfin_single_line()
