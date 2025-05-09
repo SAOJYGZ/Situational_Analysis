@@ -1,181 +1,223 @@
+import datetime
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+from api import get_price_data
 
 def render():
-    st.header("雪球情景分析")
-    st.subheader("开发中...请勿使用！")
+    st.title("雪球结构产品收益模拟与可视化")
 
-    # 1) 产品类型选择（后续可扩充更多）
-    product = st.selectbox("选择产品类型", ["雪球"], index=0)
-    st.subheader(f"{product} 参数输入模板")
+    # -------------------------------
+    # 1. 参数输入
+    # -------------------------------
+    st.header("参数输入")
+    PRESET_CODES = ["000016.SH", "000300.SH", "000905.SH", "000852.SH"]
+    underlying_code = st.selectbox("挂钩标的代码", PRESET_CODES, index=3)
 
-    # 2) 参数输入表单
-    with st.form(key="params_form"):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            term = st.text_input("期限", value="24M")
-            ko_barrier = st.number_input("敲出障碍价格 (%)", min_value=0.0, max_value=200.0, value=105.0)
-            ki_barrier = st.number_input("敲入障碍价格 (%)", min_value=0.0, max_value=200.0, value=70.0)
-            obs_style = st.selectbox("敲入观察方式", ["每日观察", "到期观察"])
-        with col2:
-            participation = st.number_input("参与率 (%)", min_value=0.0, max_value=500.0, value=100.0)
-            coupon_rate = st.number_input("票息率 (%)", min_value=0.0, max_value=100.0, value=5.0)
-            margin_ratio = st.number_input("保证金比例 (%)", min_value=0.0, max_value=100.0, value=100.0)
-        with col3:
-            max_loss = st.number_input("最大亏损比例 (%)", min_value=0.0, max_value=100.0, value=100.0)
-            st.write("")  # 占位
-            st.write("")
-        submitted = st.form_submit_button("生成分析图表")
+    knock_in_pct    = st.number_input("敲入障碍价格 (%)", value=70.0, min_value=0.0, max_value=100.0)
+    start_price     = st.number_input("产品期初价格 (点位)", value=100.0, min_value=0.0)
+    start_date      = st.date_input("产品开始日期", value=pd.to_datetime("2025-05-08").date())
 
-    if submitted:
-        # 参数汇总表
-        params = {
-            "期限": term,
-            "敲出障碍价格": f"{ko_barrier:.2f}%",
-            "敲入障碍价格": f"{ki_barrier:.2f}%",
-            "敲入观察方式": obs_style,
-            "参与率": f"{participation:.2f}%",
-            "票息率": f"{coupon_rate:.2f}%",
-            "保证金比例": f"{margin_ratio:.2f}%",
-            "最大亏损比例": f"{max_loss:.2f}%"
-        }
-        df_params = (
-            pd.DataFrame.from_dict(params, orient="index", columns=["值"])  
-              .reset_index().rename(columns={"index": "参数"})
-        )
-        st.table(df_params)
+    obs_dates_input = st.text_area(
+        "敲出观察日列表 (YYYY/MM/DD，用逗号或换行分隔)",
+        "2025/06/09,2025/07/08,2025/08/08,2025/09/08,2025/10/09\n"
+        "2025/11/10,2025/12/08,2026/01/08,2026/02/09,2026/03/09\n"
+        "2026/04/08,2026/05/08,2026/06/08,2026/07/08,2026/08/10\n"
+        "2026/09/08,2026/10/08,2026/11/09,2026/12/08,2027/01/08\n"
+        "2027/02/12,2027/03/08,2027/04/08,2027/05/10"
+    )
+    obs_barriers_input = st.text_area(
+        "对应敲出障碍价格 (%) 列表 (与观察日一一对应)",
+        "\n".join(["100.00%"]*24)
+    )
+    obs_coupons_input = st.text_area(
+        "对应敲出票息 (%) 列表 (与观察日一一对应)",
+        "\n".join(["2.34%"]*24)
+    )
+    sim_start_date = st.date_input(
+        "模拟数据开始日期 (用于历史模拟)",
+        value=pd.to_datetime("2022-03-01").date()
+    )
 
-        # 解析期限（月数）
-        try:
-            months = int(term.rstrip("M"))
-        except:
-            months = 24
+    # ---- 解析输入 ----
+    def parse_date_list(s: str):
+        parts = [x.strip() for x in s.replace("\n",",").split(",") if x.strip()]
+        res = []
+        for p in parts:
+            try:
+                res.append(pd.to_datetime(p).date())
+            except:
+                st.error(f"日期格式错误: {p}")
+                return []
+        return res
 
-        # 时间序列：0 到 months
-        time = np.arange(0, months + 1)
+    def parse_pct_list(s: str):
+        parts = [x.strip() for x in s.replace("\n",",").split(",") if x.strip()]
+        res = []
+        for p in parts:
+            if p.endswith("%"):
+                p = p[:-1]
+            try:
+                res.append(float(p)/100.0)
+            except:
+                st.error(f"百分比格式错误: {p}")
+                return []
+        return res
 
-        # 模拟标的价格路径（示例随机过程，可替换为真实数据）
-        dt = 1/12
-        mu = 0.0
-        vol = 0.2
-        prices = [100]
-        for _ in range(months):
-            shock = np.random.normal((mu - 0.5 * vol**2) * dt, vol * np.sqrt(dt))
-            prices.append(prices[-1] * np.exp(shock))
-        prices = np.array(prices)
+    obs_dates    = parse_date_list(obs_dates_input)
+    obs_barriers = parse_pct_list(obs_barriers_input)
+    obs_coupons  = parse_pct_list(obs_coupons_input)
 
-        # 检测敲入/敲出事件
-        ki_events = np.where(prices <= ki_barrier)[0]
-        ko_events = np.where(prices >= ko_barrier)[0]
-        ki_date = int(ki_events[0]) if ki_events.size > 0 else None
-        ko_date = int(ko_events[0]) if ko_events.size > 0 else None
+    if not (len(obs_dates) == len(obs_barriers) == len(obs_coupons)):
+        st.error("观察日、障碍价、票息 列表长度必须一致")
+        st.stop()
 
-        # 计算事件说明
-        if ko_date is not None and ko_date > 0:
-            end_msg = f"第{ko_date}月敲出，产品提前结束"
-        else:
-            if ki_date is not None:
-                end_msg = f"到期未敲出，已发生敲入（第{ki_date}月）"
-            else:
-                end_msg = f"到期未敲出且未敲入"
+    # 构造敲入/敲出映射
+    knock_in_level   = start_price * (knock_in_pct / 100.0)
+    obs_barrier_lvls = [start_price * p for p in obs_barriers]
+    obs_dict         = {obs_dates[i]: obs_barrier_lvls[i] for i in range(len(obs_dates))}
+    coupon_dict      = {obs_dates[i]: obs_coupons[i]          for i in range(len(obs_dates))}
 
-        # 绘制路径与事件图
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=time, y=prices,
-            mode='lines', name='标的价格', line=dict(width=2)
-        ))
-        # 障碍线
-        fig.add_shape(type='line', x0=0, x1=months, y0=ki_barrier, y1=ki_barrier,
-                      line=dict(color='blue', width=1, dash='dash'))
-        fig.add_shape(type='line', x0=0, x1=months, y0=ko_barrier, y1=ko_barrier,
-                      line=dict(color='green', width=1, dash='dash'))
-        # 事件标记
-        if ki_date is not None:
-            fig.add_trace(go.Scatter(
-                x=[ki_date], y=[prices[ki_date]], mode='markers', name='敲入',
-                marker=dict(symbol='x', size=10, color='blue')
-            ))
-        if ko_date is not None:
-            fig.add_trace(go.Scatter(
-                x=[ko_date], y=[prices[ko_date]], mode='markers', name='敲出',
-                marker=dict(symbol='star', size=12, color='green')
-            ))
+    # -------------------------------
+    # 2. 图1: 理论收益曲线
+    # -------------------------------
+    st.header("图1：雪球产品理论收益曲线")
+    final_coupon_rate = obs_coupons[-1] if obs_coupons else 0.0
 
-        fig.update_layout(
-            title='标的价格路径与敲入/敲出事件',
-            xaxis_title='时间（月）', yaxis_title='标的价格 (%)',
-            xaxis=dict(range=[0, months]), yaxis=dict(range=[prices.min()*0.9, prices.max()*1.1]),
-            legend=dict(orientation='h', y=1.05, x=0.5, xanchor='center')
-        )
-        st.plotly_chart(fig, use_container_width=True)
+    x_perc = np.linspace(0, 1.5, 301) * 100
+    payoff_knockin    = [(min(fp,100)/100)*100 for fp in x_perc]
+    payoff_no_knockin = [(1 + final_coupon_rate) * 100 for _ in x_perc]
 
-        # 事件说明输出
-        st.write(end_msg)
+    fig1 = go.Figure()
+    fig1.add_trace(go.Scatter(x=x_perc, y=payoff_knockin, mode="lines",
+                              name="收益曲线", line=dict(color="red")))
+    # fig1.add_trace(go.Scatter(x=x_perc, y=payoff_no_knockin, mode="lines",
+    #                           name="未发生敲入", line=dict(color="green", dash="dash")))
+    fig1.add_vline(x=knock_in_pct, line_dash="dot", line_color="red",
+                   annotation_text=f"敲入障碍 {knock_in_pct:.1f}%", annotation_position="bottom left")
+    fig1.add_vline(x=100, line_dash="dot", line_color="gray",
+                   annotation_text="期初价 100%", annotation_position="bottom right")
+    fig1.update_layout(title="雪球产品理论收益曲线",
+                       xaxis_title="标的最终价格 / 期初价格 (%)",
+                       yaxis_title="产品最终收益 (% 相对本金)",
+                       template="plotly_white")
+    st.plotly_chart(fig1, use_container_width=True)
 
-        # ————— 新增：雪球产品收益示意图 —————
-        st.subheader("Snowball 产品收益示意图")
-        scenario = st.selectbox(
-            "选择收益场景", 
-            ["到期前敲出", "到期前没有敲入敲出", "敲入未敲出", "敲入后提前敲出"]
-        )
-        # 场景额外输入
-        ko_month = None
-        ki_month = None
-        final_price = None
-        if scenario == "到期前敲出":
-            ko_month = st.slider("敲出发生月", 1, months-1, value=int(months/2))
-        elif scenario == "敲入未敲出":
-            final_price = st.number_input(
-                "到期标的价格 (%) (≤ 敲入障碍)", 0.0, float(ki_barrier), value=float(ki_barrier*0.9)
-            )
-        elif scenario == "敲入后提前敲出":
-            ki_month = st.slider("敲入发生月", 1, months-1, value=int(months/4))
-            ko_month = st.slider("敲出发生月", ki_month+1, months-1, value=int(months/2))
+    # -------------------------------
+    # 3. 图2: 历史模拟价格路径
+    # -------------------------------
+    st.header("图2：历史模拟价格路径")
+    final_obs = obs_dates[-1]
 
-        # 构建收益曲线
-        payoff = np.zeros_like(time, dtype=float)
-        # 到期前敲出
-        if scenario == "到期前敲出":
-            accrual = coupon_rate * (ko_month/12)
-            payoff = 100 + coupon_rate * (time/12)
-            payoff[time >= ko_month] = 100 + accrual
-        # 到期前没有敲入敲出
-        elif scenario == "到期前没有敲入敲出":
-            payoff = 100 + coupon_rate * (time/12)
-        # 敲入未敲出
-        elif scenario == "敲入未敲出":
-            payoff[:] = 100
-            payoff[-1] = final_price
-        # 敲入后提前敲出
-        elif scenario == "敲入后提前敲出":
-            accrual = coupon_rate * (ko_month/12)
-            payoff = 100 + coupon_rate * (time/12)
-            payoff[time >= ko_month] = 100 + accrual
+    # 1) 真实日历天数
+    period_days = (pd.to_datetime(final_obs) - pd.to_datetime(start_date)).days
 
-        # 绘制收益示意图
-        fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(
-            x=time, y=payoff, mode='lines+markers', name='兑付水平',
-            line=dict(width=2)
-        ))
-        # 障碍线标注
-        fig2.add_shape(type='line', x0=0, x1=months, y0=100+coupon_rate, y1=100+coupon_rate,
-                       line=dict(color='gray', width=1, dash='dash'))
-        fig2.add_annotation(x=months, y=100+coupon_rate, text='本金+票息', showarrow=False, xanchor='right')
-        if ko_barrier:
-            fig2.add_shape(type='line', x0=0, x1=months, y0=100, y1=100,
-                           line=dict(color='black', width=1, dash='dot'))
-        fig2.update_layout(
-            title='不同场景下 Snowball 产品收益示意',
-            xaxis_title='时间（月）', yaxis_title='兑付 (%)',
-            xaxis=dict(range=[0, months]),
-            yaxis=dict(range=[min(payoff.min(), 90), max(payoff.max(), 110)])
-        )
-        st.plotly_chart(fig2, use_container_width=True)
+    # 2) 拉取历史
+    fetch_end = sim_start_date + datetime.timedelta(days=period_days + 60)
+    raw = get_price_data(codes=[underlying_code],
+                         start_date=sim_start_date.strftime("%Y-%m-%d"),
+                         end_date=fetch_end.strftime("%Y-%m-%d"))
+    hist = raw.get(underlying_code, [])
+    if not hist:
+        st.error("无法获取历史数据，请检查接口")
+        st.stop()
 
+    df = pd.DataFrame(hist)
+    df["date"] = pd.to_datetime(df["date"])
+    price_col = "close" if "close" in df else df.columns[1]
+    df["price"] = df[price_col].astype(float)
+    df.sort_values("date", inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
+    # 3) 计算收益率
+    df["ret"] = df["price"].pct_change()
+    rets = df["ret"].dropna().values
+
+    # 4) 构造产品全部交易日
+    sim_dates = pd.bdate_range(start_date, final_obs)
+    N = len(sim_dates)
+
+    # 5) 如果历史收益率不够，用0补齐
+    if len(rets) < N-1:
+        st.warning(f"历史收益率不足，需 {N-1} 日，实际 {len(rets)} 日，后续视为 0%")
+        rets = np.concatenate([rets, np.zeros(N-1-len(rets))])
     else:
-        st.info("请在上方输入参数，然后点击'生成分析图表'")
+        rets = rets[:N-1]
 
+    # 6) 模拟滚动
+    sim_prices = [start_price]
+    knock_ined = False
+    knock_out  = False
+    knock_in_date = None
+    knock_out_date= None
+
+    for i, r in enumerate(rets):
+        if knock_out:
+            break
+        new_p = sim_prices[-1] * (1 + r)
+        today = sim_dates[i+1]
+        sim_prices.append(new_p)
+
+        if not knock_ined and new_p < knock_in_level:
+            knock_ined, knock_in_date = True, today
+        if today.date() in obs_dict and not knock_out:
+            lvl = obs_dict[today.date()]
+            if new_p >= lvl:
+                knock_out, knock_out_date = True, today
+                break
+
+    # 7) 截断到敲出日（若无提前敲出则自然到最后观察日）
+    if knock_out and knock_out_date:
+        idx = list(sim_dates).index(knock_out_date)
+        sim_dates = sim_dates[:idx+1]
+        sim_prices= sim_prices[:idx+1]
+
+    sim_df = pd.DataFrame({"price": sim_prices}, index=sim_dates)
+
+    # 8) 绘图
+    fig2 = go.Figure()
+    fig2.add_trace(go.Scatter(x=sim_df.index, y=sim_df["price"],
+                              mode="lines", name="模拟价格", line=dict(color="#2b6cb0")))
+    fig2.add_trace(go.Scatter(x=[sim_df.index[0], sim_df.index[-1]],
+                              y=[knock_in_level]*2,
+                              mode="lines", name="敲入线",
+                              line=dict(color="red", dash="dash"),
+                              hovertemplate="敲入障碍: %{y:.2f}<extra></extra>"))
+    xs, ys = [], []
+    for d, lvl in obs_dict.items():
+        dt = pd.to_datetime(d)
+        if dt in sim_df.index:
+            xs.append(dt); ys.append(lvl)
+    if xs:
+        fig2.add_trace(go.Scatter(x=xs, y=ys, mode="markers",
+                                  name="敲出障碍价",
+                                  marker=dict(symbol="diamond", color="green", size=8),
+                                  hovertemplate="敲出障碍: %{y:.2f}<extra></extra>"))
+    if knock_in_date:
+        fig2.add_vline(x=knock_in_date, line_dash="dot", line_color="red")
+        fig2.add_annotation(x=knock_in_date, y=max(sim_prices),
+                            text="敲入发生", showarrow=True, arrowhead=1,
+                            yanchor="bottom", font=dict(color="red"))
+    if knock_out_date:
+        fig2.add_vline(x=knock_out_date, line_dash="dot", line_color="green")
+        fig2.add_annotation(x=knock_out_date, y=max(sim_prices),
+                            text="敲出发生", showarrow=True, arrowhead=1,
+                            yanchor="bottom", font=dict(color="green"))
+
+    fig2.update_layout(title="历史模拟价格路径",
+                       xaxis_title="日期", yaxis_title="价格",
+                       template="plotly_white")
+    st.plotly_chart(fig2, use_container_width=True)
+
+    # -------------------------------
+    # 4. 事件结果
+    # -------------------------------
+    st.header("事件结果")
+    if knock_out_date:
+        idx = obs_dates.index(knock_out_date.date())
+        st.write(f"- 敲出: {knock_out_date.date()}，获得年化收益 {obs_coupons[idx]*100:.2f}% 并返还本金")
+    elif knock_ined:
+        st.write(f"- 敲入: {knock_in_date.date()}，敲入时价格 {sim_prices[-1]:.2f}")
+    else:
+        st.write("- 未敲入、未敲出；持有至到期，获得红利票息。")
