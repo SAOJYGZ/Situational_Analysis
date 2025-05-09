@@ -221,8 +221,8 @@ def render():
     st.header("事件结果")
     if knock_out_date:
         i = obs_dates.index(knock_out_date.date())
-        st.write(f"- 敲出: {knock_out_date.date()}，票息 {obs_coupons[i]*100:.2f}% 并返还本金")
+        st.write(f"- 敲出: {knock_out_date.date()}，获得年化收益 {obs_coupons[i]*100:.2f}% 并返还本金")
     elif knock_ined:
-        st.write(f"- 敲入: {knock_in_date.date()}，最终价格 {sim_prices[-1]:.2f}")
+        st.write(f"- 敲入: {knock_in_date.date()}，敲入时价格 {sim_prices[-1]:.2f}")
     else:
-        st.write("- 未敲入、未敲出；持有至到期，获得全部票息。")
+        st.write("- 未敲入、未敲出；持有至到期，获得红利票息。")
