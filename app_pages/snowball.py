@@ -92,9 +92,9 @@ def render():
 
     fig1 = go.Figure()
     fig1.add_trace(go.Scatter(x=x_perc, y=payoff_knockin, mode="lines",
-                              name="敲入已触发", line=dict(color="red")))
-    fig1.add_trace(go.Scatter(x=x_perc, y=payoff_no_knockin, mode="lines",
-                              name="未发生敲入", line=dict(color="green", dash="dash")))
+                              name="收益曲线", line=dict(color="red")))
+    # fig1.add_trace(go.Scatter(x=x_perc, y=payoff_no_knockin, mode="lines",
+    #                           name="未发生敲入", line=dict(color="green", dash="dash")))
     fig1.add_vline(x=knock_in_pct, line_dash="dot", line_color="red",
                    annotation_text=f"敲入障碍 {knock_in_pct:.1f}%", annotation_position="bottom left")
     fig1.add_vline(x=100, line_dash="dot", line_color="gray",
