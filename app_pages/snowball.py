@@ -230,7 +230,7 @@ def render():
         active_days = sim_df.index.get_loc(knock_out_date) + 1
         
         # 计算收益（万元）
-        payoff = notional_principal * margin_ratio * coupon * active_days / 365
+        payoff = notional_principal * coupon * active_days / 365
         
         st.write(
             f"- 敲出发生日期：{knock_out_date.date()}  \n"
