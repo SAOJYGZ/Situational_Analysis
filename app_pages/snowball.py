@@ -239,7 +239,8 @@ def render():
             f"- 收益：{payoff:.2f} 万元"
         )
     elif knock_ined:
-        st.write(f"- 敲入发生日期：{knock_in_date.date()}，敲入时价格 {sim_prices[-1]:.2f}")
+        st.write(f"- 敲入发生日期：{knock_in_date.date()}，敲入时价格 {sim_prices[-1]:.2f} \n"
+                 "未完成")
     else:
         payoff = notional_principal * dividend_rate * margin_ratio
         st.write(f"- 产品到期，未敲入未敲出，获得红利票息收益 {payoff:.2f} 万元")
