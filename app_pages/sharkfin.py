@@ -3,10 +3,6 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
-
 def sharkfin():
     st.header("鲨鱼鳍期权情景分析")
     st.subheader("标的价格 vs 年化收益率")
@@ -180,4 +176,4 @@ def sharkfin():
         """)
 
     else:
-        st.info("请在上方输入参数并点击“生成分析图表”。")
+        st.info("请在上方输入参数，然后点击“生成鲨鱼鳍收益分析图”。")
