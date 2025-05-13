@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-def sharkfin():
+def render():
     st.header("鲨鱼鳍期权情景分析")
     st.subheader("标的价格 vs 年化收益率")
 
