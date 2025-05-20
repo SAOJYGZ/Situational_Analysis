@@ -13,15 +13,15 @@ def render():
     # -------------------------------
     st.header("参数输入")
 
-    PRESET_CODES = ["000016.SH", "000300.SH", "000905.SH", "000852.SH","513180.SH"]
-    underlying_code      = st.selectbox("挂钩标的代码", PRESET_CODES, index=3)
-    notional_principal   = st.number_input("名义本金 (万元)", value=100.0, min_value=0.0)
+    PRESET_CODES = ["000016.SH", "000300.SH", "000905.SH", "000852.SH", "513180.SH"]
+    underlying_code     = st.selectbox("挂钩标的代码", PRESET_CODES, index=3)
+    notional_principal  = st.number_input("名义本金 (万元)", value=100.0, min_value=0.0)
 
-    knock_in_pct         = st.number_input("敲入障碍价格 (%)", value=70.0, min_value=0.0, max_value=100.0)
-    start_price          = st.number_input("产品期初价格 (点位)", value=100.0, min_value=0.0)
-    start_date           = st.date_input("产品开始日期", value=pd.to_datetime("2025-05-08").date())
+    knock_in_pct        = st.number_input("敲入障碍价格 (%)", value=70.0, min_value=0.0, max_value=100.0)
+    start_price         = st.number_input("产品期初价格 (点位)", value=100.0, min_value=0.0)
+    start_date          = st.date_input("产品开始日期", value=pd.to_datetime("2025-05-08").date())
 
-    obs_dates_input      = st.text_area(
+    obs_dates_input     = st.text_area(
         "敲出观察日列表 (YYYY/MM/DD，用逗号或换行分隔)",
         "2025/06/09,2025/07/08,2025/08/08,2025/09/08,2025/10/09\n"
         "2025/11/10,2025/12/08,2026/01/08,2026/02/09,2026/03/09\n"
@@ -29,29 +29,32 @@ def render():
         "2026/09/08,2026/10/08,2026/11/09,2026/12/08,2027/01/08\n"
         "2027/02/12,2027/03/08,2027/04/08,2027/05/10"
     )
-    obs_barriers_input    = st.text_area(
+    obs_barriers_input   = st.text_area(
         "对应敲出障碍价格 (%) 列表 (与观察日一一对应)",
         "\n".join(["100.00%"]*24)
     )
-    obs_coupons_input     = st.text_area(
+    obs_coupons_input    = st.text_area(
         "对应敲出票息 (%) 列表 (与观察日一一对应)",
         "\n".join(["2.34%"]*24)
     )
 
-    dividend_mode         = st.selectbox("红利票息来源", ["同敲出票息", "自行输入"], index=0)
+    dividend_mode        = st.selectbox("红利票息来源", ["同敲出票息", "自行输入"], index=0)
     if dividend_mode == "同敲出票息":
         tmp = [float(p.rstrip("%"))/100.0 for p in obs_coupons_input.replace("\n",",").split(",") if p.strip()]
         dividend_rate = tmp[-1] if tmp else 0.0
     else:
-        dividend_rate = st.number_input("红利票息 (%)", value=2.34, min_value=0.0)/100.0
+        dividend_rate = st.number_input("红利票息 (%)", value=2.34, min_value=0.0) / 100.0
 
-    margin_ratio          = st.number_input("保证金比例 (%)", value=100.0, min_value=0.0, max_value=100.0)/100.0
-    max_loss_ratio        = st.number_input("最大亏损比例 (%)", value=100.0, min_value=0.0, max_value=100.0)/100.0
+    margin_ratio         = st.number_input("保证金比例 (%)", value=100.0, min_value=0.0, max_value=100.0) / 100.0
+    max_loss_ratio       = st.number_input("最大亏损比例 (%)", value=100.0, min_value=0.0, max_value=100.0) / 100.0
 
-    # 新增：敲入观察方式
-    knock_in_style        = st.selectbox("敲入观察方式", ["每日观察", "到期观察"], index=0)
+    # 新增：敲入执行价格 & 敲入参与率
+    knock_in_strike_pct  = st.number_input("敲入执行价格 (%)", value=100.0, min_value=0.0, max_value=200.0) / 100.0
+    participation_rate   = st.number_input("敲入参与率 (%)", value=100.0, min_value=0.0, max_value=500.0) / 100.0
 
-    sim_start_date        = st.date_input("模拟数据开始日期 (用于历史模拟)", value=pd.to_datetime("2022-03-01").date())
+    knock_in_style       = st.selectbox("敲入观察方式", ["每日观察", "到期观察"], index=0)
+    sim_start_date       = st.date_input("模拟数据开始日期 (用于历史模拟)",
+                                         value=pd.to_datetime("2022-03-01").date())
 
     # 等待按钮触发
     if not st.button("生成分析图表"):
@@ -74,8 +77,8 @@ def render():
         return
 
     # 映射
-    knock_in_level   = start_price * knock_in_pct/100.0
-    obs_barrier_lvls = [start_price*p for p in obs_barriers]
+    knock_in_level   = start_price * knock_in_pct / 100.0
+    obs_barrier_lvls = [start_price * p for p in obs_barriers]
     obs_dict         = dict(zip(obs_dates, obs_barrier_lvls))
 
     # -------------------------------
@@ -86,7 +89,6 @@ def render():
     payoff_knockin    = [(min(fp,100)/100)*100 for fp in x_perc]
     payoff_no_knockin = [(1+dividend_rate)*100 for _ in x_perc]
 
-    # 保证金 & 最大亏损
     payoff_knockin    = [100 + (v-100)*margin_ratio for v in payoff_knockin]
     payoff_no_knockin = [100 + (v-100)*margin_ratio for v in payoff_no_knockin]
     min_payoff        = (1-max_loss_ratio)*100
@@ -111,12 +113,12 @@ def render():
     # -------------------------------
     st.header("图2：历史模拟价格路径")
     final_obs   = obs_dates[-1]
-    period_days = (pd.to_datetime(final_obs)-pd.to_datetime(start_date)).days
+    period_days = (pd.to_datetime(final_obs) - pd.to_datetime(start_date)).days
     fetch_end   = sim_start_date + datetime.timedelta(days=period_days+90)
 
-    raw = get_price_data([underlying_code],
-                         sim_start_date.strftime("%Y-%m-%d"),
-                         fetch_end.strftime("%Y-%m-%d"))
+    raw  = get_price_data([underlying_code],
+                          sim_start_date.strftime("%Y-%m-%d"),
+                          fetch_end.strftime("%Y-%m-%d"))
     hist = raw.get(underlying_code, [])
     if not hist:
         st.error("无法获取历史数据")
@@ -146,26 +148,22 @@ def render():
         today = sim_dates[i+1]
         sim_prices.append(new_p)
 
-        # 每日观察敲入
         if knock_in_style == "每日观察" and not knock_ined and new_p < knock_in_level:
             knock_ined, knock_in_date = True, today
 
-        # 敲出检测
         if today.date() in obs_dict and new_p >= obs_dict[today.date()]:
             knock_out, knock_out_date = True, today
             break
 
-    # 到期观察敲入
     if not knock_out and knock_in_style == "到期观察":
-        final_price = sim_prices[-1]
-        if final_price < knock_in_level:
+        final_p = sim_prices[-1]
+        if final_p < knock_in_level:
             knock_ined, knock_in_date = True, sim_dates[-1]
 
-    # 提前敲出截断
     if knock_out:
         idx = list(sim_dates).index(knock_out_date)
-        sim_dates = sim_dates[:idx+1]
-        sim_prices= sim_prices[:idx+1]
+        sim_dates  = sim_dates[:idx+1]
+        sim_prices = sim_prices[:idx+1]
 
     sim_df = pd.DataFrame({"price": sim_prices}, index=sim_dates)
 
@@ -215,17 +213,23 @@ def render():
             f"- 收益：{payoff:.2f} 万元（含本金返还）"
         )
     elif knock_ined:
+        # 敲入但未敲出：基于“敲入执行价格”和“敲入参与率”计算亏损
         final_price     = sim_prices[-1]
-        loss_pct        = max(0, (start_price - final_price) / start_price)
-        capped_loss_pct = min(loss_pct, max_loss_ratio)
-        loss_amt        = capped_loss_pct * notional_principal
+        final_pct       = final_price / start_price
+        # 若 final_pct >= knock_in_strike_pct，则不亏；否则亏损 = strike - final_pct
+        raw_loss_pct    = max(0.0, knock_in_strike_pct - final_pct)
+        capped_loss_pct = min(raw_loss_pct, max_loss_ratio)
+        loss_amt        = capped_loss_pct * notional_principal * participation_rate
+
         st.write(
-            f"- 敲入日期：{knock_in_date.date()}  \n"
-            f"- 最后观察价：{final_price:.2f}  \n"
-            f"- 真实亏损：{loss_pct*100:.2f}%  \n"
-            f"- 亏损上限：{capped_loss_pct*100:.2f}%  \n"
+            f"- 敲入发生日期：{knock_in_date.date()}  \n"
+            f"- 最后观察日价格：{final_price:.2f}  \n"
+            f"- 敲入执行价格：{knock_in_strike_pct*100:.2f}%  \n"
+            f"- 按(执行价格-期末价格)/期初价 计算亏损：{raw_loss_pct*100:.2f}%  \n"
+            f"- 应用最大亏损上限：{capped_loss_pct*100:.2f}%  \n"
+            f"- 敲入参与率：{participation_rate*100:.2f}%  \n"
             f"- 亏损金额：{loss_amt:.2f} 万元"
         )
     else:
-        payoff = notional_principal * dividend_rate * margin_ratio
-        st.write(f"- 到期未触发，获得红利票息收益：{payoff:.2f} 万元")
+        payoff = notional_principal * dividend_rate
+        st.write(f"- 产品到期，未触发敲出或敲入事件，获得红利票息收益：{payoff:.2f} 万元")
