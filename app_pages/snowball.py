@@ -207,7 +207,7 @@ def render():
             f"- 按(执行价格-期末价格)/期初价 计算亏损：{raw_loss_pct*100:.2f}%  \n"
             f"- 应用最大亏损上限：{capped_loss_pct*100:.2f}%  \n"
             f"- 敲入参与率：{participation_rate*100:.2f}%  \n"
-            f"- 亏损金额：{loss_amt:.2f} 万元"
+            f"- 亏损金额：-{loss_amt:.2f} 万元"
         )
     else:
         payoff = notional_principal * dividend_rate
