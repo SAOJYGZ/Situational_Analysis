@@ -2,8 +2,8 @@ import os
 import pandas as pd
 import streamlit as st
 
-
-BASE_PATH = r"D:\Github\Situational_Analysis"
+# 动态获取当前脚本（api.py）所在目录作为数据目录
+BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 @st.cache_data
 def get_price_data(codes, start_date, end_date):
@@ -13,7 +13,9 @@ def get_price_data(codes, start_date, end_date):
 
     for code in codes:
         base = code.split('.')[0]
+        # 相对路径拼接
         path = os.path.join(BASE_PATH, f"{base}_daily.xlsx")
+
         if not os.path.exists(path):
             st.error(f"文件不存在：{path}")
             result[code] = []
@@ -34,3 +36,4 @@ def get_price_data(codes, start_date, end_date):
             for d,c in zip(df['date'],df['close'])
         ]
     return result
+
