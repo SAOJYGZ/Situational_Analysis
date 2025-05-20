@@ -22,7 +22,7 @@ def get_price_data(codes, start_date, end_date):
             continue
 
         try:
-            df = pd.read_excel(path, usecols=[0,1], engine="openpyxl")
+            df = pd.read_excel(path, usecols=['date', 'close'], engine="openpyxl")
         except Exception as e:
             st.error(f"读取失败：{e}")
             result[code] = []
