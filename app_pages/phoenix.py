@@ -271,9 +271,9 @@ def render():
                 st.write(f" - {d} 未派息")
 
         st.write(
-            f"- 共计应派息 {total_months} 月， {sum(d[3] for d in dividend_events):.2f} 万元，"
-            f"获得派息 {paid_months} 月 ，{sum(d[3] for d in dividend_events if d[1]):.2f} 万元，"
-            f"未派息 {unpaid_months}月，{sum(d[3] for d in dividend_events if not d[1]):.2f} 万元"
+            f"- 共计应派息: {total_months} 月， {sum(d[3] for d in dividend_events):.2f} 万元; \n"
+            f"已获得派息： {paid_months} 月 ，{sum(d[3] for d in dividend_events if d[1]):.2f} 万元; \n"
+            f"未派息： {unpaid_months}月，{sum(d[3] for d in dividend_events if not d[1]):.2f} 万元"
         )
 
     # 敲入敲出结果打印
