@@ -3,11 +3,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from dateutil.relativedelta import relativedelta
 from api import get_price_data
 
 def render():
-    st.title("雪球结构产品收益模拟与可视化")
+    st.title("雪球结构产品收益模拟")
 
     # -------------------------------
     # 1. 参数输入
@@ -57,6 +56,7 @@ def render():
     max_loss_input = st.number_input("最大亏损比例 (%)", value=100.0, min_value=0.0, max_value=100.0)
     max_loss_ratio = max_loss_input / 100.0
 
+    
     # ---- 解析敲出列表 ----
     def parse_date_list(s: str):
         parts = [x.strip() for x in s.replace("\n",",").split(",") if x.strip()]
@@ -80,7 +80,7 @@ def render():
     obs_dict         = dict(zip(obs_dates, obs_barrier_lvls))
 
     # -------------------------------
-    # 2. 图1: 理论收益曲线
+    # 2. 图1: 理论收益曲线（需修改）
     # -------------------------------
     st.header("图1：雪球产品理论收益曲线")
     final_coupon_rate = dividend_rate
@@ -126,7 +126,7 @@ def render():
     )
 
     # 2) 拉取历史
-    fetch_end = sim_start_date + datetime.timedelta(days=period_days+30)
+    fetch_end = sim_start_date + datetime.timedelta(days=period_days+90)
     raw = get_price_data([underlying_code],
                          sim_start_date.strftime("%Y-%m-%d"),
                          fetch_end.strftime("%Y-%m-%d"))
@@ -239,8 +239,22 @@ def render():
             f"- 收益：{payoff:.2f} 万元"
         )
     elif knock_ined:
-        st.write(f"- 敲入发生日期：{knock_in_date.date()}，敲入时价格 {sim_prices[-1]:.2f} \n"
-                 "未完成")
+        # 敲入发生但未敲出
+        final_price = sim_prices[-1]
+        # 计算亏损百分比 = (期初点位 - 最后观察日点位) / 期初点位
+        loss_pct = (start_price - final_price) / start_price
+        # 最大亏损限额 = max_loss_ratio
+        capped_loss_pct = min(loss_pct, max_loss_ratio)
+        # 亏损金额（万元）
+        loss_amount = capped_loss_pct * notional_principal
+
+        st.write(
+            f"- 敲入发生日期：{knock_in_date.date()}  \n"
+            f"- 最后观察日价格：{final_price:.2f}  \n"
+            f"- 按(期初价 - 最后价)/期初价 计算亏损：{loss_pct*100:.2f}%  \n"
+            f"- 应用最大亏损上限：{capped_loss_pct*100:.2f}%  \n"
+            f"- 亏损金额：{loss_amount:.2f} 万元"
+        )
     else:
         payoff = notional_principal * dividend_rate * margin_ratio
         st.write(f"- 产品到期，未敲入未敲出，获得红利票息收益 {payoff:.2f} 万元")
