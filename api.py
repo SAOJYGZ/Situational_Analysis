@@ -28,7 +28,7 @@ def get_price_data(codes, start_date, end_date):
             result[code] = []
             continue
 
-        df = df.rename(columns={df.columns[0]:'date', df.columns[1]:'close'})
+        # df = df.rename(columns={df.columns[0]:'date', df.columns[1]:'close'})
         df['date'] = pd.to_datetime(df['date']).dt.date
         df = df[(df['date']>=sd)&(df['date']<=ed)].sort_values('date')
         result[code] = [
