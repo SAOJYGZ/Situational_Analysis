@@ -45,7 +45,6 @@ def render():
     else:
         dividend_rate = st.number_input("红利票息 (%)", value=2.34, min_value=0.0) / 100.0
 
-    margin_ratio         = st.number_input("保证金比例 (%)", value=100.0, min_value=0.0, max_value=100.0) / 100.0
     max_loss_ratio       = st.number_input("最大亏损比例 (%)", value=100.0, min_value=0.0, max_value=100.0) / 100.0
 
     # 新增：敲入执行价格 & 敲入参与率
@@ -185,7 +184,7 @@ def render():
         idx         = obs_dates.index(knock_out_date.date())
         coupon      = obs_coupons[idx]
         active_days = sim_df.index.get_loc(knock_out_date) + 1
-        payoff      = notional_principal * margin_ratio * coupon * active_days / 365
+        payoff      = notional_principal  * coupon * active_days / 365
         st.write(
             f"- 敲出日期：{knock_out_date.date()}  \n"
             f"- 存续交易日：{active_days} 天  \n"
