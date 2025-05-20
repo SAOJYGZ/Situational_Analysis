@@ -117,94 +117,92 @@ def render():
     # 2. 图1：收益示意（待实现）
     # -------------------------------
     st.header("图1：收益示意（待实现）")
+    st.subheader("顾总请在这里展示你的技术")
 
     # -------------------------------
     # 3. 图2：历史模拟价格路径
     # -------------------------------
     st.header("图2：历史模拟价格路径")
-    final_obs                 = obs_dates[-1]
-    period_days               = (pd.to_datetime(final_obs) - pd.to_datetime(start_date)).days
-    fetch_end                 = sim_start_date + datetime.timedelta(days=period_days + 90)
+    final_obs   = obs_dates[-1]
+    period_days = (pd.to_datetime(final_obs) - pd.to_datetime(start_date)).days
+    fetch_end   = sim_start_date + datetime.timedelta(days=period_days + 90)
 
-    # 拉取历史
-    raw                       = get_price_data([underlying_code],
-                                               sim_start_date.strftime("%Y-%m-%d"),
-                                               fetch_end.strftime("%Y-%m-%d"))
-    hist                      = raw.get(underlying_code, [])
+    raw  = get_price_data([underlying_code],
+                         sim_start_date.strftime("%Y-%m-%d"),
+                         fetch_end.strftime("%Y-%m-%d"))
+    hist = raw.get(underlying_code, [])
     if not hist:
-        st.error("无法获取历史数据")
-        return
+        st.error("无法获取历史数据"); return
 
     df = pd.DataFrame(hist)
-    df["date"]              = pd.to_datetime(df["date"])
-    price_col                = "close" if "close" in df else df.columns[1]
-    df["price"]            = df[price_col].astype(float)
+    df["date"]  = pd.to_datetime(df["date"])
+    price_col   = "close" if "close" in df else df.columns[1]
+    df["price"] = df[price_col].astype(float)
     df.sort_values("date", inplace=True)
     df.reset_index(drop=True, inplace=True)
-    df["ret"]              = df["price"].pct_change().fillna(0)
+    df["ret"]   = df["price"].pct_change().fillna(0)
 
-    # 生成工作日索引
-    sim_dates                = pd.bdate_range(start_date, final_obs)
-    N                        = len(sim_dates)
-    rets                     = df["ret"].values
-    rets                     = np.concatenate([rets, np.zeros(max(0, N-1-len(rets)))])[:N-1]
+    sim_dates      = pd.bdate_range(start_date, final_obs)
+    rets           = df["ret"].values
+    rets           = np.concatenate([rets, np.zeros(max(0, len(sim_dates)-1-len(rets)))])[:len(sim_dates)-1]
 
-    sim_prices               = [start_price]
-    knock_ined               = False
-    knock_out                = False
-    knock_in_date            = knock_out_date = None
-    dividend_events          = []
+    sim_prices     = [start_price]
+    knock_ined     = False
+    knock_out      = False
+    knock_in_date  = knock_out_date = None
+    dividend_events= []
 
-    # 模拟演算
     for i, r in enumerate(rets):
         if knock_out: break
-        new_price             = sim_prices[-1] * (1 + r)
-        today                 = sim_dates[i+1]
+        new_price = sim_prices[-1] * (1 + r)
+        today     = sim_dates[i+1]
         sim_prices.append(new_price)
 
         # 敲入检测
-        if knock_in_style == "每日观察" and not knock_ined and new_price < knock_in_level:
+        if knock_in_style=="每日观察" and not knock_ined and new_price<knock_in_level:
             knock_ined, knock_in_date = True, today
         # 敲出检测
-        if today.date() in obs_dict and new_price >= obs_dict[today.date()]:
+        if today.date() in obs_dict and new_price>=obs_dict[today.date()]:
             knock_out, knock_out_date = True, today
             break
         # 派息检测
         if today.date() in dividend_dict:
-            rate               = dividend_dict[today.date()]
-            paid               = new_price >= start_price * dividend_barrier_pct
-            amount             = notional_principal * rate
+            rate   = dividend_dict[today.date()]
+            paid   = new_price>= start_price*dividend_barrier_pct
+            amount = notional_principal*rate
             dividend_events.append((today.date(), paid, rate, amount))
 
-    # 到期敲入检测
-    if not knock_out and knock_in_style == "到期观察" and sim_prices[-1] < knock_in_level:
+    # 到期敲入/到期派息
+    if not knock_out and knock_in_style=="到期观察" and sim_prices[-1]<knock_in_level:
         knock_ined, knock_in_date = True, sim_dates[-1]
-    # 到期最后一次派息
-    last_date               = sim_dates[-1].date()
-    if last_date in dividend_dict and all(d[0] != last_date for d in dividend_events):
-        rate               = dividend_dict[last_date]
-        paid               = sim_prices[-1] >= start_price * dividend_barrier_pct
-        amount             = notional_principal * rate
-        dividend_events.append((last_date, paid, rate, amount))
+    last_d = sim_dates[-1].date()
+    if last_d in dividend_dict and all(d[0]!=last_d for d in dividend_events):
+        rate   = dividend_dict[last_d]
+        paid   = sim_prices[-1]>= start_price*dividend_barrier_pct
+        amount = notional_principal*rate
+        dividend_events.append((last_d, paid, rate, amount))
 
-    # 如提前敲出则截断序列
+    # 提前敲出截断
     if knock_out_date:
-        idx                = sim_dates.get_indexer([knock_out_date])[0]
-        sim_dates          = sim_dates[:idx+1]
-        sim_prices         = sim_prices[:idx+1]
+        idx = sim_dates.get_indexer([knock_out_date])[0]
+        sim_dates  = sim_dates[:idx+1]
+        sim_prices = sim_prices[:idx+1]
 
-    sim_df                  = pd.DataFrame({"price": sim_prices}, index=sim_dates)
+    sim_df = pd.DataFrame({"price": sim_prices}, index=sim_dates)
 
-    # 绘制图2
+    # ==== 绘图 ====
     fig2 = go.Figure()
     # 价格路径
-    fig2.add_trace(go.Scatter(x=sim_df.index, y=sim_df["price"], mode="lines", name="模拟价格"))
-    # 敲入水平线
-    fig2.add_shape(type="line",
-                   x0=sim_df.index[0], x1=sim_df.index[-1],
-                   y0=knock_in_level, y1=knock_in_level,
-                   line=dict(color="red", dash="dash"))
-    # 敲出点
+    fig2.add_trace(go.Scatter(x=sim_df.index, y=sim_df["price"],
+                              mode="lines", name="模拟价格"))
+    # **改用 scatter 画敲入水平线，使其出现在图例里**
+    fig2.add_trace(go.Scatter(
+        x=[sim_df.index[0], sim_df.index[-1]],
+        y=[knock_in_level, knock_in_level],
+        mode="lines", name="敲入线",
+        line=dict(color="red", dash="dash")
+    ))
+    # 敲出障碍点
     xs, ys = [], []
     for d, lvl in obs_dict.items():
         dt = pd.to_datetime(d)
@@ -214,45 +212,73 @@ def render():
         fig2.add_trace(go.Scatter(x=xs, y=ys, mode="markers", name="敲出障碍价",
                                   marker=dict(color="green", size=8)))
     # 派息事件
-    paid_x, paid_y, paid_cd     = [], [], []
+    paid_x, paid_y, paid_cd = [], [], []
     unpaid_x, unpaid_y, unpaid_cd = [], [], []
     for d, paid, rate, amount in dividend_events:
         dt = pd.to_datetime(d)
         if dt in sim_df.index:
             if paid:
-                paid_x.append(dt); paid_y.append(sim_df.loc[dt, "price"]); paid_cd.append([rate, amount])
+                paid_x.append(dt); paid_y.append(sim_df.loc[dt,"price"]); paid_cd.append([rate, amount])
             else:
-                unpaid_x.append(dt); unpaid_y.append(sim_df.loc[dt, "price"]); unpaid_cd.append([rate, amount])
-    # 派息成功
+                unpaid_x.append(dt); unpaid_y.append(sim_df.loc[dt,"price"]); unpaid_cd.append([rate, amount])
     if paid_x:
         fig2.add_trace(go.Scatter(x=paid_x, y=paid_y, mode="markers", name="派息成功",
                                   marker=dict(symbol="star", color="red", size=12),
-                                  hovertemplate="日期: %{x|%Y-%m-%d}<br>派息率: %{customdata[0]:.2%}<br>派息金额: %{customdata[1]:.2f} 万元<extra></extra>",
-                                  customdata=paid_cd))
-    # 未派息
+                                  customdata=paid_cd,
+                                  hovertemplate="日期:%{x|%Y-%m-%d}<br>派息金额:%{customdata[1]:.2f} 万元<extra></extra>"))
     if unpaid_x:
         fig2.add_trace(go.Scatter(x=unpaid_x, y=unpaid_y, mode="markers", name="未派息",
                                   marker=dict(symbol="star", color="lightgray", size=12),
-                                  hovertemplate="日期: %{x|%Y-%m-%d}<br>派息率: %{customdata[0]:.2%}<br>派息金额: %{customdata[1]:.2f} 万元<extra></extra>",
-                                  customdata=unpaid_cd))
-    # 敲入/敲出垂线
+                                  customdata=unpaid_cd,
+                                  hovertemplate="日期:%{x|%Y-%m-%d}<br>派息金额:%{customdata[1]:.2f} 万元<extra></extra>"))
+    # 敲入/敲出竖线
     if knock_in_date:
-        fig2.add_shape(type="line", x0=knock_in_date, x1=knock_in_date,
-                       y0=min(sim_prices), y1=max(sim_prices), line=dict(color="red", dash="dot"))
-        fig2.add_annotation(x=knock_in_date, y=max(sim_prices), text="敲入", font=dict(color="red"), showarrow=True, arrowhead=1)
+        fig2.add_shape(type="line",
+                       x0=knock_in_date, x1=knock_in_date,
+                       y0=min(sim_prices), y1=max(sim_prices),
+                       line=dict(color="red", dash="dot"))
+        fig2.add_annotation(x=knock_in_date, y=max(sim_prices), text="敲入",
+                            showarrow=True, arrowhead=1, font=dict(color="red"))
     if knock_out_date:
-        fig2.add_shape(type="line", x0=knock_out_date, x1=knock_out_date,
-                       y0=min(sim_prices), y1=max(sim_prices), line=dict(color="green", dash="dot"))
-        fig2.add_annotation(x=knock_out_date, y=max(sim_prices), text="敲出", font=dict(color="green"), showarrow=True, arrowhead=1)
-    fig2.update_layout(title="历史模拟价格路径", xaxis_title="日期", yaxis_title="价格", template="plotly_white")
+        fig2.add_shape(type="line",
+                       x0=knock_out_date, x1=knock_out_date,
+                       y0=min(sim_prices), y1=max(sim_prices),
+                       line=dict(color="green", dash="dot"))
+        fig2.add_annotation(x=knock_out_date, y=max(sim_prices), text="敲出",
+                            showarrow=True, arrowhead=1, font=dict(color="green"))
+
+    fig2.update_layout(title="历史模拟价格路径",
+                       xaxis_title="日期", yaxis_title="价格",
+                       template="plotly_white")
     st.plotly_chart(fig2, use_container_width=True)
 
     # -------------------------------
     # 4. 事件结果
     # -------------------------------
     st.header("事件结果")
+    st.subheader("派息记录")
+    if not dividend_events:
+        st.write("无派息")
+    else:
+        total_months = len(dividend_events)
+        paid_months  = sum(1 for _, paid, _, _ in dividend_events if paid)
+        unpaid_months= total_months - paid_months
+        # 仅输出“派息”/“未派息”和对应金额
+        for d, paid, rate, amt in dividend_events:
+            if paid:
+                st.write(f" - {d} 派息 {amt:.2f} 万元")
+            else:
+                st.write(f" - {d} 未派息")
+
+        st.write(
+            f"- 共计应派息 {total_months} 月， {sum(d[3] for d in dividend_events):.2f} 万元，"
+            f"获得派息 {paid_months} 月 ，{sum(d[3] for d in dividend_events if d[1]):.2f} 万元，"
+            f"未派息 {unpaid_months}月，{sum(d[3] for d in dividend_events if not d[1]):.2f} 万元"
+        )
+
+    # 敲入敲出结果打印
     if knock_out_date:
-        st.write(f"- 敲出日期：{knock_out_date.date()}，产品结束")
+        st.write(f"- 敲出日期：{knock_out_date.date()}，产品结束 \n")
     elif knock_ined:
         # 敲入但未敲出：基于“敲入执行价格”和“敲入参与率”计算亏损
         final_price     = sim_prices[-1]
@@ -269,24 +295,26 @@ def render():
             f"- 按(执行价格-期末价格)/期初价 计算亏损：{raw_loss_pct*100:.2f}%  \n"
             f"- 应用最大亏损上限：{capped_loss_pct*100:.2f}%  \n"
             f"- 敲入参与率：{participation_rate*100:.2f}%  \n"
-            f"- 亏损金额：{loss_amt:.2f} 万元"
+            f"- 因敲入而亏损金额：-{loss_amt:.2f} 万元 \n"
+            f"- 产品总收益：{sum(d[3] for d in dividend_events if d[1]) - loss_amt:.2f} 万元 \n"
+
         )
     else:
         st.write("- 未敲入/未敲出，产品结束")
 
-    st.subheader("派息记录")
-    if not dividend_events:
-        st.write("无派息")
-    else:
-        # 仅输出“派息”/“未派息”和对应金额
-        for d, paid, rate, amt in dividend_events:
-            if paid:
-                st.write(f" - {d} 派息 {amt:.2f} 万元")
-            else:
-                st.write(f" - {d} 未派息")
+    # st.subheader("派息记录")
+    # if not dividend_events:
+    #     st.write("无派息")
+    # else:
+    #     # 仅输出“派息”/“未派息”和对应金额
+    #     for d, paid, rate, amt in dividend_events:
+    #         if paid:
+    #             st.write(f" - {d} 派息 {amt:.2f} 万元")
+    #         else:
+    #             st.write(f" - {d} 未派息")
 
-        st.write(
-            f"- 共计应派息 {sum(d[3] for d in dividend_events):.2f} 万元，"
-            f"获得派息 {sum(d[3] for d in dividend_events if d[1]):.2f} 万元，"
-            f"未派息 {sum(d[3] for d in dividend_events if not d[1]):.2f} 万元"
-        )
+    #     st.write(
+    #         f"- 共计应派息 {sum(d[3] for d in dividend_events):.2f} 万元，"
+    #         f"获得派息 {sum(d[3] for d in dividend_events if d[1]):.2f} 万元，"
+    #         f"未派息 {sum(d[3] for d in dividend_events if not d[1]):.2f} 万元"
+    #     )
