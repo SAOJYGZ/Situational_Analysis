@@ -85,28 +85,8 @@ def render():
     # 2. 图1: 理论收益曲线
     # -------------------------------
     st.header("图1：雪球产品理论收益曲线")
-    x_perc            = np.linspace(0,1.5,301)*100
-    payoff_knockin    = [(min(fp,100)/100)*100 for fp in x_perc]
-    payoff_no_knockin = [(1+dividend_rate)*100 for _ in x_perc]
-
-    payoff_knockin    = [100 + (v-100)*margin_ratio for v in payoff_knockin]
-    payoff_no_knockin = [100 + (v-100)*margin_ratio for v in payoff_no_knockin]
-    min_payoff        = (1-max_loss_ratio)*100
-    payoff_knockin    = [max(v,min_payoff) for v in payoff_knockin]
-
-    fig1 = go.Figure()
-    fig1.add_trace(go.Scatter(x=x_perc, y=payoff_knockin, mode="lines",
-                              name="敲入已触发", line=dict(color="red")))
-    fig1.add_trace(go.Scatter(x=x_perc, y=payoff_no_knockin, mode="lines",
-                              name="未发生敲入", line=dict(color="green", dash="dash")))
-    fig1.add_vline(x=knock_in_pct, line_dash="dot", line_color="red",
-                   annotation_text=f"敲入 {knock_in_pct:.1f}%", annotation_position="bottom left")
-    fig1.add_vline(x=100, line_dash="dot", line_color="gray",
-                   annotation_text="期初价 100%", annotation_position="bottom right")
-    fig1.update_layout(title="雪球产品理论收益曲线",
-                       xaxis_title="标的最终 (%)", yaxis_title="收益 (%)",
-                       template="plotly_white")
-    st.plotly_chart(fig1, use_container_width=True)
+    st.subheader("顾总请在这里展示你的技术")
+    
 
     # -------------------------------
     # 3. 图2: 历史模拟价格路径
