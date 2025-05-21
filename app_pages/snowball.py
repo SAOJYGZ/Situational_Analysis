@@ -19,7 +19,8 @@ def render():
     underlying_code     = st.selectbox("挂钩标的代码", PRESET_CODES, index=3)
     notional_principal  = st.number_input("名义本金 (万元)", value=1000, min_value=0)
     start_date          = st.date_input("产品开始日期", value=pd.to_datetime("2025-05-08").date())
-    knock_in_pct        = st.number_input("敲入障碍价格 (%)", value=70.0, min_value=0.0, max_value=100.0)
+    knock_in_pct        = st.number_input("敲入障碍价格 (%)", value=70.0, min_value=0.0, max_value=100.0)/100.0
+    
     if snowball_type == "雪球":
         knock_in_strike_pct  = st.number_input("敲入执行价格 (%)", value=100.0, min_value=0.0, max_value=200.0) / 100.0
         participation_rate   = st.number_input("敲入参与率 (%)", value=100.0, min_value=0.0, max_value=500.0) / 100.0
@@ -80,7 +81,7 @@ def render():
         return
 
     # 映射
-    knock_in_level   = start_price * knock_in_pct / 100.0
+    knock_in_level   = start_price * knock_in_pct
     obs_barrier_lvls = [start_price * p for p in obs_barriers]
     obs_dict         = dict(zip(obs_dates, obs_barrier_lvls))
 
