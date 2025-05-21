@@ -15,12 +15,16 @@ def render():
 
     PRESET_CODES = ["000016.SH","000300.SH","000905.SH","000852.SH","513180.SH"]
     underlying_code          = st.selectbox("挂钩标的代码", PRESET_CODES, index=3)
-    notional_principal       = st.number_input("名义本金 (万元)", value=100.0, min_value=0.0)
-
-    knock_in_pct             = st.number_input("敲入障碍价格 (%)", value=70.0, min_value=0.0, max_value=100.0)
-    dividend_barrier_pct     = st.number_input("派息障碍价格 (%)", value=70.0, min_value=0.0, max_value=500.0)/100.0
-    start_price              = st.number_input("产品期初价格 (点位)", value=100.0, min_value=0.0)
+    notional_principal       = st.number_input("名义本金 (万元)", value=1000, min_value=0)
     start_date               = st.date_input("产品开始日期", value=pd.to_datetime("2025-05-20").date())
+    knock_in_pct             = st.number_input("敲入障碍价格 (%)", value=70, min_value=0, max_value=100)
+    dividend_barrier_pct     = st.number_input("派息障碍价格 (%)", value=70, min_value=0, max_value=100)/100
+    max_loss_ratio            = st.number_input("最大亏损比例 (%)", value=100.0, min_value=0.0, max_value=100.0)/100.0
+    knock_in_strike_pct       = st.number_input("敲入执行价格 (%)", value=100.0, min_value=0.0, max_value=200.0) / 100.0
+    participation_rate        = st.number_input("敲入参与率 (%)", value=100.0, min_value=0.0, max_value=500.0) / 100.0
+    knock_in_style            = st.selectbox("敲入观察方式", ["每日观察","到期观察"], index=0)
+    
+    
 
     # 派息观察日列表
     obs_dividend_dates_input = st.text_area(
@@ -55,10 +59,7 @@ def render():
         ])
     )
 
-    max_loss_ratio            = st.number_input("最大亏损比例 (%)", value=100.0, min_value=0.0, max_value=100.0)/100.0
-    knock_in_strike_pct       = st.number_input("敲入执行价格 (%)", value=100.0, min_value=0.0, max_value=200.0) / 100.0
-    participation_rate        = st.number_input("敲入参与率 (%)", value=100.0, min_value=0.0, max_value=500.0) / 100.0
-    knock_in_style            = st.selectbox("敲入观察方式", ["每日观察","到期观察"], index=0)
+    start_price              = st.number_input("产品期初价格 (点位/%)", value=100.0, min_value=0.0)
     sim_start_date            = st.date_input(
         "模拟数据开始日期 (用于历史模拟)",
         value=pd.to_datetime("2022-03-01").date()
@@ -117,7 +118,7 @@ def render():
     # 2. 图1：收益示意（待实现）
     # -------------------------------
     st.header("图1：收益示意（待实现）")
-    st.subheader("顾总请在这里展示你的技术")
+    st.subheader("顾总将在这里展示技术")
 
     # -------------------------------
     # 3. 图2：历史模拟价格路径
