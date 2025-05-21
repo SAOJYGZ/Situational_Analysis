@@ -302,20 +302,3 @@ def render():
         )
     else:
         st.write("- 未敲入/未敲出，产品结束")
-
-    # st.subheader("派息记录")
-    # if not dividend_events:
-    #     st.write("无派息")
-    # else:
-    #     # 仅输出“派息”/“未派息”和对应金额
-    #     for d, paid, rate, amt in dividend_events:
-    #         if paid:
-    #             st.write(f" - {d} 派息 {amt:.2f} 万元")
-    #         else:
-    #             st.write(f" - {d} 未派息")
-
-    #     st.write(
-    #         f"- 共计应派息 {sum(d[3] for d in dividend_events):.2f} 万元，"
-    #         f"获得派息 {sum(d[3] for d in dividend_events if d[1]):.2f} 万元，"
-    #         f"未派息 {sum(d[3] for d in dividend_events if not d[1]):.2f} 万元"
-    #     )
