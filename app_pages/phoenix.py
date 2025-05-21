@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from api import get_price_data
 
 def render():
-    st.title("凤凰结构产品收益模拟")
+    st.title("👑凤凰结构产品收益模拟👑")
 
     # -------------------------------
     # 1. 参数输入
@@ -123,7 +123,7 @@ def render():
     # -------------------------------
     # 3. 图2：历史模拟价格路径
     # -------------------------------
-    st.header("图2：历史模拟价格路径")
+    st.header("👑图2：历史模拟价格路径👑")
     final_obs   = obs_dates[-1]
     period_days = (pd.to_datetime(final_obs) - pd.to_datetime(start_date)).days
     fetch_end   = sim_start_date + datetime.timedelta(days=period_days + 90)

@@ -5,7 +5,7 @@ from app_pages.phoenix import render as render_phoenix
 from app_pages.test import render as render_test
 
 
-st.set_page_config(page_title="场外衍生品情景分析",layout="wide")
+st.set_page_config(page_title="👑场外衍生品情景分析👑",layout="wide")
 st.sidebar.title("产品选择")
 page=st.sidebar.radio("选择产品：",["鲨鱼鳍","雪球","凤凰/DCN/FCN","测试页面"])
 
