@@ -15,12 +15,17 @@ def render():
 
     PRESET_CODES = ["000016.SH", "000300.SH", "000905.SH", "000852.SH", "513180.SH"]
     underlying_code     = st.selectbox("挂钩标的代码", PRESET_CODES, index=3)
-    notional_principal  = st.number_input("名义本金 (万元)", value=100.0, min_value=0.0)
-
-    knock_in_pct        = st.number_input("敲入障碍价格 (%)", value=70.0, min_value=0.0, max_value=100.0)
-    start_price         = st.number_input("产品期初价格 (点位)", value=100.0, min_value=0.0)
+    notional_principal  = st.number_input("名义本金 (万元)", value=1000, min_value=0)
     start_date          = st.date_input("产品开始日期", value=pd.to_datetime("2025-05-08").date())
+    knock_in_pct        = st.number_input("敲入障碍价格 (%)", value=70.0, min_value=0.0, max_value=100.0)
+    knock_in_strike_pct  = st.number_input("敲入执行价格 (%)", value=100.0, min_value=0.0, max_value=200.0) / 100.0
+    participation_rate   = st.number_input("敲入参与率 (%)", value=100.0, min_value=0.0, max_value=500.0) / 100.0
 
+    knock_in_style       = st.selectbox("敲入观察方式", ["每日观察", "到期观察"], index=0)
+
+
+    max_loss_ratio       = st.number_input("最大亏损比例 (%)", value=100.0, min_value=0.0, max_value=100.0) / 100.0
+    
     obs_dates_input     = st.text_area(
         "敲出观察日列表 (YYYY/MM/DD，用逗号或换行分隔)",
         "2025/06/09,2025/07/08,2025/08/08,2025/09/08,2025/10/09\n"
@@ -33,25 +38,19 @@ def render():
         "对应敲出障碍价格 (%) 列表 (与观察日一一对应)",
         "\n".join(["100.00%"]*24)
     )
+    
     obs_coupons_input    = st.text_area(
         "对应敲出票息 (%) 列表 (与观察日一一对应)",
         "\n".join(["2.34%"]*24)
     )
-
+    
     dividend_mode        = st.selectbox("红利票息来源", ["同敲出票息", "自行输入"], index=0)
     if dividend_mode == "同敲出票息":
         tmp = [float(p.rstrip("%"))/100.0 for p in obs_coupons_input.replace("\n",",").split(",") if p.strip()]
         dividend_rate = tmp[-1] if tmp else 0.0
     else:
         dividend_rate = st.number_input("红利票息 (%)", value=2.34, min_value=0.0) / 100.0
-
-    max_loss_ratio       = st.number_input("最大亏损比例 (%)", value=100.0, min_value=0.0, max_value=100.0) / 100.0
-
-    # 新增：敲入执行价格 & 敲入参与率
-    knock_in_strike_pct  = st.number_input("敲入执行价格 (%)", value=100.0, min_value=0.0, max_value=200.0) / 100.0
-    participation_rate   = st.number_input("敲入参与率 (%)", value=100.0, min_value=0.0, max_value=500.0) / 100.0
-
-    knock_in_style       = st.selectbox("敲入观察方式", ["每日观察", "到期观察"], index=0)
+    start_price          = st.number_input("产品期初价格 (点位)", value=100.0, min_value=0.0)
     sim_start_date       = st.date_input("模拟数据开始日期 (用于历史模拟)",
                                          value=pd.to_datetime("2022-03-01").date())
 
@@ -84,7 +83,7 @@ def render():
     # 2. 图1: 理论收益曲线
     # -------------------------------
     st.header("图1：雪球产品理论收益曲线")
-    st.subheader("顾总请在这里展示你的技术")
+    st.subheader("顾总将在这里展示技术")
     
 
     # -------------------------------
