@@ -14,12 +14,17 @@ def render():
     st.header("参数输入")
 
     PRESET_CODES = ["000016.SH", "000300.SH", "000905.SH", "000852.SH", "513180.SH"]
+    snowball_types = ["雪球", "三元雪球"]
+    snowball_type     = st.selectbox("雪球产品类型", snowball_types, index=0)
     underlying_code     = st.selectbox("挂钩标的代码", PRESET_CODES, index=3)
     notional_principal  = st.number_input("名义本金 (万元)", value=1000, min_value=0)
     start_date          = st.date_input("产品开始日期", value=pd.to_datetime("2025-05-08").date())
     knock_in_pct        = st.number_input("敲入障碍价格 (%)", value=70.0, min_value=0.0, max_value=100.0)
-    knock_in_strike_pct  = st.number_input("敲入执行价格 (%)", value=100.0, min_value=0.0, max_value=200.0) / 100.0
-    participation_rate   = st.number_input("敲入参与率 (%)", value=100.0, min_value=0.0, max_value=500.0) / 100.0
+    if snowball_type == "雪球":
+        knock_in_strike_pct  = st.number_input("敲入执行价格 (%)", value=100.0, min_value=0.0, max_value=200.0) / 100.0
+        participation_rate   = st.number_input("敲入参与率 (%)", value=100.0, min_value=0.0, max_value=500.0) / 100.0
+    else:
+        guaranteed_return = st.number_input("敲入收益率 (%)", value=1.0, min_value=0.0, max_value=100.0) / 100.0
 
     knock_in_style       = st.selectbox("敲入观察方式", ["每日观察", "到期观察"], index=0)
 
@@ -84,7 +89,12 @@ def render():
     # -------------------------------
     st.header("图1：雪球产品理论收益曲线")
     st.subheader("顾总将在这里展示技术")
-    
+    if snowball_type == "雪球":
+        #雪球的图
+        pass
+    else:
+        #三元雪球的图
+        pass
 
     # -------------------------------
     # 3. 图2: 历史模拟价格路径
@@ -191,23 +201,30 @@ def render():
             f"- 收益：{payoff:.2f} 万元（含本金返还）"
         )
     elif knock_ined:
-        # 敲入但未敲出：基于“敲入执行价格”和“敲入参与率”计算亏损
-        final_price     = sim_prices[-1]
-        final_pct       = final_price / start_price
-        # 若 final_pct >= knock_in_strike_pct，则不亏；否则亏损 = strike - final_pct
-        raw_loss_pct    = max(0.0, knock_in_strike_pct - final_pct)
-        capped_loss_pct = min(raw_loss_pct, max_loss_ratio)
-        loss_amt        = capped_loss_pct * notional_principal * participation_rate
+        if snowball_type == "雪球":
+            # 敲入但未敲出：基于“敲入执行价格”和“敲入参与率”计算亏损
+            final_price     = sim_prices[-1]
+            final_pct       = final_price / start_price
+            # 若 final_pct >= knock_in_strike_pct，则不亏；否则亏损 = strike - final_pct
+            raw_loss_pct    = max(0.0, knock_in_strike_pct - final_pct)
+            capped_loss_pct = min(raw_loss_pct, max_loss_ratio)
+            loss_amt        = capped_loss_pct * notional_principal * participation_rate
 
-        st.write(
-            f"- 敲入发生日期：{knock_in_date.date()}  \n"
-            f"- 最后观察日价格：{final_price:.2f}  \n"
-            f"- 敲入执行价格：{knock_in_strike_pct*100:.2f}%  \n"
-            f"- 按(执行价格-期末价格)/期初价 计算亏损：{raw_loss_pct*100:.2f}%  \n"
-            f"- 应用最大亏损上限：{capped_loss_pct*100:.2f}%  \n"
-            f"- 敲入参与率：{participation_rate*100:.2f}%  \n"
-            f"- 亏损金额：-{loss_amt:.2f} 万元"
-        )
+            st.write(
+                f"- 敲入发生日期：{knock_in_date.date()}  \n"
+                f"- 最后观察日价格：{final_price:.2f}  \n"
+                f"- 敲入执行价格：{knock_in_strike_pct*100:.2f}%  \n"
+                f"- 按(执行价格-期末价格)/期初价 计算亏损：{raw_loss_pct*100:.2f}%  \n"
+                f"- 应用最大亏损上限：{capped_loss_pct*100:.2f}%  \n"
+                f"- 敲入参与率：{participation_rate*100:.2f}%  \n"
+                f"- 亏损金额：-{loss_amt:.2f} 万元"
+            )
+        else:
+            # 三元雪球：敲入但到期前未敲出
+            st.write(
+                f"- 敲入发生日期：{knock_in_date.date()}  \n"
+                f"- 获得敲入收益：{guaranteed_return * notional_principal:.2f}万元 "
+            )
     else:
         payoff = notional_principal * dividend_rate
         st.write(f"- 产品到期，未触发敲出或敲入事件，获得红利票息收益：{payoff:.2f} 万元")
