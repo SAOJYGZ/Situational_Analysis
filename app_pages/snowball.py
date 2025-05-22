@@ -199,7 +199,7 @@ def render():
             f"- 敲出日期：{knock_out_date.date()}  \n"
             f"- 存续交易日：{active_days} 天  \n"
             f"- 年化票息：{coupon*100:.2f}%  \n"
-            f"- 收益：{payoff:.2f} 万元（含本金返还）"
+            f"- 收益：{payoff:.2f} 万元"
         )
     elif knock_ined:
         if snowball_type == "雪球":
