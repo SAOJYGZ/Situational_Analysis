@@ -7,5 +7,3 @@ from api import get_price_data
 
 def render():
     st.title("测试页面")
-
-    
